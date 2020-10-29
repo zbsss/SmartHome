@@ -1,3 +1,5 @@
+import time
+
 class Device:
     def __init__(self, floor, room, type, id, local, button, led, send, lock):
         self.lock = lock
@@ -18,40 +20,22 @@ class Device:
 
     def exec_command(self, command='toggle'):
         self.lock.acquire()
-        if self.local:
-            self._local_command(command)
-        else:
-            self._non_local_command(command)
+
+        before = self.led.is_active
+
+        if command == 'on':
+            self.led.on()
+        elif command == 'off':
+            self.led.off()
+        if command == 'toggle':
+            if self.local:
+                self.led.toggle()
+            else:
+                # if you want to toggle a non local device you need to send a request
+                self.send(f"{self.floor};{self.room};{self.type};{self.id};toggle")
+
+        if self.local and self.led.is_active != before:
+            # after changing state of the local device, you need to notify all the other circuits of it's new state
+            self.send(f"{self.floor};{self.room};{self.type};{self.id};{'on' if self.led.is_active else 'off'}")
+
         self.lock.release()
-
-    def _non_local_command(self, operation='toggle'):
-        """
-        If the device is not local we send the request and wait for the response with on/off message
-        only then do we change the state of the local LED
-        """
-
-        if operation == 'on':
-            self.led.on()
-        elif operation == 'off':
-            self.led.off()
-        else:
-            self.send(f"{self.floor};{self.room};{self.type};{self.id};toggle")
-
-    def _local_command(self, operation='toggle'):
-        """
-        Button function for the local device
-        """
-
-        if operation == 'toggle':
-            self.led.toggle()
-        elif operation == 'on':
-            self.led.on()
-        elif operation == 'off':
-            self.led.off()
-        else:
-            raise ValueError(f"Wrong operation {operation}!")
-
-        # we have to notify that the state of the light changed so that other devices can update it
-        self.send(f"{self.floor};{self.room};{self.type};{self.id};{'on' if self.led.is_active else 'off'}")
-
-

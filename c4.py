@@ -4,43 +4,33 @@ from device import Device
 from config import *
 
 
-# configuration of this circuit
-#Todo
-NAME = 'c2'
-FLOOR = 'f1'
-ROOM = 'kitchen'
-
-
 def send(msg):
     """
     Sending messages to other devices
     """
-    msg = NAME + ';' + msg
     print('SENT: "%s"' % msg)
     send_sock.sendto(msg.encode('utf-8'), (MCAST_GRP, MCAST_PORT))
 
-# Todo
 DEVICES = [
-    Device('f1', 'living room', 'lamp', '1', False,  button1, led1, send, lock),
-    Device('f1', 'kitchen', 'lamp', '1', True,  button2, led2, send, lock)
+    Device('f1', 'lobby', 'lamp', '1', True,  button1, led1, send, lock),
+    Device('*', '*', '*', '*', True,  button2, led2, send, lock)
 ]
 
 
 def receiver():
     """
     When receiving messages we need  to check it the message is not coming from
-    ourselves because that can couse a loop. Thats why to every message I attach the sender name
+    ourselves because that can cause a loop. That's why to every message we attach the sender name eq. 'c1;'
     """
     while True:
         command = rcv_sock.recv(10240)
         command = command.decode("utf-8").split(';')
         print('RECEIVED: ', command)
-        if command[0] != NAME:
-            command = command[1:]
-            for device in DEVICES:
-                if device.is_addressed(command):
-                    device.exec_command(command[-1])
-
+        for device in DEVICES:
+            if device.is_addressed(command):
+                if not device.local and command[-1] == 'toggle':
+                    continue
+                device.exec_command(command[-1])
 
 @circuit.run
 def main():
